@@ -49,12 +49,9 @@ let get_menu_html ?delivery shift =
   >|= Yojson.Safe.Util.to_string
 
 let get_menu ?delivery shift =
-  (*
-  FIXME
   let%lwt html = get_menu_html ?delivery shift in
-  *)
   let open Soup in
-  let soup = read_file "menu.html" |> parse in
+  let soup = parse html in
   (* TODO div[class^='section-menu-idx-'] *)
   soup $$ "div[data-id-product]" |>
   to_list |>

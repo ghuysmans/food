@@ -29,13 +29,46 @@ let print_prod {Foodcheri.product_type; picture; chef; title; tags; price; _} =
   printf st "%s | %s\n" pt title;
   Lwt.return_unit
 
-(* TODO cache *)
+(* TODO implement group_by *)
+let products l =
+  let open Tyxml in
+  let fmt {Foodcheri.title; tags; price; _} =
+    Html.p [Html.pcdata title]
+  in
+  let f (l, prev) ({Foodcheri.product_type; _} as prod) =
+    match prev with
+    | None -> [Html.h2 [Html.pcdata product_type]], Some prod
+    | Some {Foodcheri.product_type = pt'; _} ->
+      if product_type = pt' then
+        (fmt prod) :: l,
+        Some prod
+      else
+        fmt prod :: Html.h2 [Html.pcdata product_type] :: l,
+        Some prod
+  in
+  List.fold_left f ([], None) l |>
+  fst |>
+  List.rev
+
+let template page_title content =
+  let open Tyxml.Html in
+  let title = title (pcdata page_title) in
+  let h1 = h1 [pcdata page_title] in
+  let css = "label {display: block}" in
+  let utf8 = meta ~a:[a_charset "utf8"] () in
+  html (head title [utf8; style [pcdata css]]) (body (h1 :: content))
+
+
 let () = Lwt_main.run (
-  (*
-  let%lwt shift = get_shift () in
-  let%lwt html = get_menu_html shift in
-  FIXME stream using from_signals?
-  *)
-  Foodcheri.get_menu {Foodcheri.idShift=42; deliveryDate="x"}
-  >>= Lwt_list.iter_s print_prod
+  let%lwt shift = Foodcheri.get_shift () in
+  let%lwt menu = Foodcheri.get_menu shift in
+  if Array.length Sys.argv = 2 && Sys.argv.(1) = "-html" then (
+    let fmt = Format.formatter_of_out_channel stdout in
+    let page = template "FoodChéri" (products menu) in
+    Tyxml.Html.pp () fmt page;
+    Format.pp_print_flush fmt ();
+    Lwt.return_unit
+  )
+  else
+    Lwt_list.iter_s print_prod menu
 )
