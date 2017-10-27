@@ -64,7 +64,8 @@ let () = Lwt_main.run (
   let%lwt menu = Foodcheri.get_menu shift in
   if Array.length Sys.argv = 2 && Sys.argv.(1) = "-html" then (
     let fmt = Format.formatter_of_out_channel stdout in
-    let page = template "FoodChéri" (products menu) in
+    let title = "FoodChéri " ^ shift.Foodcheri.deliveryDate in
+    let page = template title (products menu) in
     Tyxml.Html.pp () fmt page;
     Format.pp_print_flush fmt ();
     Lwt.return_unit
