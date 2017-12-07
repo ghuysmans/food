@@ -1,4 +1,4 @@
-PKG := cmdliner,lwt.ppx,lwt.unix,cohttp.lwt,markup.lwt,lambdasoup,ppx_deriving.std,ppx_deriving_yojson,ANSITerminal
+PKG := cmdliner,lwt.ppx,lwt.unix,cohttp.lwt,markup.lwt,lambdasoup,ppx_deriving.std,ppx_deriving_yojson,ANSITerminal,tyxml
 
 all:
 	ocamlbuild -use-ocamlfind -package ${PKG} menu.byte
