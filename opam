@@ -5,7 +5,7 @@ maintainer: "Guillaume Huysmans <ghuysmans99@gmail.com>"
 authors: "Guillaume Huysmans <ghuysmans99@gmail.com>"
 homepage: "https://github.com/ocsigen/food/"
 bug-reports: "https://github.com/ocsigen/food/issues"
-dev-repo: "https://github.com/ghuysmans/food/"
+dev-repo: "https://github.com/ghuysmans/food.git"
 build: [
   [make]
 ]
