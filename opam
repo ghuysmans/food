@@ -20,4 +20,5 @@ depends: [
   "ppx_deriving_yojson"
   "ANSITerminal"
   "tyxml"
+  "tls"
 ]
