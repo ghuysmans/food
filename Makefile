@@ -3,7 +3,7 @@ PKG := cmdliner,lwt.ppx,lwt.unix,cohttp.lwt,markup.lwt,lambdasoup,ppx_deriving.s
 all:
 	ocamlbuild -use-ocamlfind -package ${PKG} menu.byte
 clean:
-	ocamlbuil -clean
+	ocamlbuild -clean
 
 .merlin: Makefile
 	echo "B _build" >.merlin
