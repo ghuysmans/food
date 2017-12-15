@@ -59,9 +59,21 @@ let template page_title content =
   html (head title [utf8; style [pcdata css]]) (body (h1 :: content))
 
 
+let besport {Foodcheri.product_type; price} =
+  match product_type with
+  | "STARTER" ->
+    price <= 4.0
+  | "MAIN_COURSE" ->
+    price <= 12.0
+  | "DESSERT" ->
+    price <= 4.0
+  | _ ->
+    false
+
 let () = Lwt_main.run (
   let%lwt shift = Foodcheri.get_shift () in
-  let%lwt menu = Foodcheri.get_menu shift in
+  let%lwt raw = Foodcheri.get_menu shift in
+  let menu = List.filter besport raw in
   if Array.length Sys.argv = 2 && Sys.argv.(1) = "-html" then (
     let fmt = Format.formatter_of_out_channel stdout in
     let title = "FoodChéri " ^ shift.Foodcheri.deliveryDate in
