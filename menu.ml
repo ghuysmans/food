@@ -50,14 +50,6 @@ let products l =
   fst |>
   List.rev
 
-let template page_title content =
-  let open Tyxml.Html in
-  let title = title (pcdata page_title) in
-  let h1 = h1 [pcdata page_title] in
-  let css = "label {display: block}" in
-  let utf8 = meta ~a:[a_charset "utf8"] () in
-  html (head title [utf8; style [pcdata css]]) (body (h1 :: content))
-
 
 let () = Lwt_main.run (
   let%lwt shift = Foodcheri.get_shift () in
@@ -65,7 +57,7 @@ let () = Lwt_main.run (
   if Array.length Sys.argv = 2 && Sys.argv.(1) = "-html" then (
     let fmt = Format.formatter_of_out_channel stdout in
     let title = "FoodChéri " ^ shift.Foodcheri.deliveryDate in
-    let page = template title (products menu) in
+    let page = Template.page title (products menu) in
     Tyxml.Html.pp () fmt page;
     Format.pp_print_flush fmt ();
     Lwt.return_unit
