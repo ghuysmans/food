@@ -7,13 +7,23 @@ let sp_menu t =
   List.map (fun (_, n, p) -> (n, p)) |>
   List.sort (fun (n, _) (n', _) -> compare n n')
 
-let ojoin (l, r) s j = Tyxml.Html.(
+let ojoin ?check ?(none="") (l, r) s j = Tyxml.Html.(
   let thead = thead [tr [th [pcdata l]; th [pcdata r]; th [pcdata s]]] in
-  table ~a:[a_class ["synth"]] ~thead (
+  (*
+  let c = col ~a:[a_style "width: 20%"] () in
+  let columns = [colgroup [c; c; col ()]] in
+  *)
+  table ~a:[a_class [if check = None then "synth" else "synth_c"]] ~thead (
     j |> List.map (fun (n, r) ->
+      let price p =
+        match check with
+        | None -> price p
+        | Some v -> pcdata v
+      in
+      let none = [pcdata none] in
       match r with
-      | Left l -> tr [td [price l]; td []; td [pcdata n]]
-      | Right r -> tr [td []; td [price r]; td [pcdata n]]
+      | Left l -> tr [td [price l]; td none; td [pcdata n]]
+      | Right r -> tr [td none; td [price r]; td [pcdata n]]
       | Both (l, r) -> tr [td [price l]; td [price r]; td [pcdata n]]
     )
   )
@@ -45,7 +55,7 @@ let board l = Tyxml.Html.(
       if t = t' then
         f (row :: acc, t) r
       else
-        f (row :: tr [td ~a:[a_colspan 2] [h2 [pcdata t']]] :: acc, t') r
+        f (row :: tr [td ~a:[a_colspan 2] [h3 [pcdata t']]] :: acc, t') r
   in
   table (f ([], "") l)
 )
@@ -65,7 +75,10 @@ let who lbl = Tyxml.Html.(
 let render =
   let j =
     full_outer_join_u (sp_menu `Riz_saute, sp_menu `Nouilles_sautees) |>
-    ojoin ("Riz", "Nouilles") "... sauté(es)"
+    (*
+    ojoin ~check:"✓" ~none:"✗" ("Riz", "Nouilles") "... sauté(es)"
+    *)
+    ojoin ~check:"✅" ~none:"❎" ("Riz", "Nouilles") "... sauté(es)"
   in
   let m = board menu in
   Tyxml.Html.[
