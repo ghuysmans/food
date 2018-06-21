@@ -105,9 +105,24 @@ let render =
   ]
 
 
-let () =
-  let fmt = Format.formatter_of_out_channel stdout in
-  let title = "Extrême Orient" in
-  let page = Template.page title render in
-  Tyxml.Html.pp () fmt page;
-  Format.pp_print_flush fmt ();
+let route h p uri =
+  let open Tyre in
+  let re = route [
+    (start *> str "/" *> stop --> fun _ ->
+      `Ok ("Extrême Orient", render));
+    (start *> str "/a" *> stop --> fun _ ->
+      `Redirect "http://disney.com");
+  ] in
+  match Tyre.(exec re (Uri.path uri)) with
+  | Ok (`Ok (t, b)) ->
+    let page = Template.page t b in
+    My_server.respond `OK (Cohttp.Header.init ()) page
+  | Ok (`Redirect u) ->
+    My_server.respond_redirect uri (Cohttp.Header.init ()) u
+  | Error _ ->
+    let page = Template.page "Not found" [] in
+    My_server.respond `Not_found (Cohttp.Header.init ()) page
+
+let () = Lwt_main.run (
+  My_server.create (`TCP (`Port 8000)) route
+)
