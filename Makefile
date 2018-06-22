@@ -1,7 +1,7 @@
-PKG := cmdliner,lwt.ppx,lwt.unix,cohttp.lwt,markup.lwt,lambdasoup,ppx_deriving.std,ppx_deriving_yojson,ANSITerminal,tyxml
+PKG := cmdliner,lwt.ppx,lwt.unix,cohttp.lwt,markup.lwt,lambdasoup,ppx_deriving.show,ppx_deriving_yojson,ANSITerminal,tyxml
 
 all:
-	ocamlbuild -use-ocamlfind -package ${PKG} menu.byte
+	ocamlbuild -use-ocamlfind -ocamlc "ocamlc -thread" -package ${PKG} menu.byte
 clean:
 	ocamlbuild -clean
 
