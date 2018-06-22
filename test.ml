@@ -7,28 +7,6 @@ let sp_menu t =
   List.map (fun (_, n, p) -> (n, p)) |>
   List.sort (fun (n, _) (n', _) -> compare n n')
 
-let ojoin ?check ?(none="") (l, r) s j = Tyxml.Html.(
-  let thead = thead [tr [th [pcdata l]; th [pcdata r]; th [pcdata s]]] in
-  (*
-  let c = col ~a:[a_style "width: 20%"] () in
-  let columns = [colgroup [c; c; col ()]] in
-  *)
-  table ~a:[a_class [if check = None then "synth" else "synth_c"]] ~thead (
-    j |> List.map (fun (n, r) ->
-      let price p =
-        match check with
-        | None -> price p
-        | Some v -> pcdata v
-      in
-      let none = [pcdata none] in
-      match r with
-      | Left l -> tr [td [price l]; td none; td [pcdata n]]
-      | Right r -> tr [td none; td [price r]; td [pcdata n]]
-      | Both (l, r) -> tr [td [price l]; td [price r]; td [pcdata n]]
-    )
-  )
-)
-
 let title_of_t ((p, _, _): t) =
   match p with
   | `Potage -> "Potages"
@@ -37,11 +15,6 @@ let title_of_t ((p, _, _): t) =
   | `Plat_riz | `Beignets_sad | `Tofu_saute -> "Plats accompagnés de riz blanc"
   | `Riz_saute -> "Riz sautés"
   | `Nouilles_sautees -> "Nouilles sautées"
-
-let checkbox name ?(value="1") checked =
-  let open Tyxml.Html in
-  let a = [a_input_type `Checkbox; a_name name; a_value value] in
-  input ~a:(if checked then a_checked () :: a else a) ()
 
 let board l selected = Tyxml.Html.(
   let rec f (acc, t) l =
@@ -52,7 +25,7 @@ let board l selected = Tyxml.Html.(
       let row = tr [
         td [price pr];
         td [label [
-          checkbox str (List.mem str selected);
+          Utils.checkbox str (List.mem str selected);
           pcdata str;
         ]];
       ] in
@@ -65,25 +38,14 @@ let board l selected = Tyxml.Html.(
   table (f ([], "") l)
 )
 
-let who lbl = Tyxml.Html.(
-  (*
-  Tyxml.Html.(label [pcdata "Nom : "; input ~a:[a_name "who"; a_required ()] ()])
-  *)
-  label [
-    pcdata lbl;
-    select ~a:[a_name "who"; a_required ()]
-      (List.map (fun x -> option (pcdata x)) ("" :: Orders.who ()))
-  ]
-)
-
 
 let render_form selected =
   let j =
     full_outer_join_u (sp_menu `Riz_saute, sp_menu `Nouilles_sautees) |>
     (*
-    ojoin ~check:"✓" ~none:"✗" ("Riz", "Nouilles") "... sauté(es)"
+    Template.ojoin ~check:"✓" ~none:"✗" ("Riz", "Nouilles") "... sauté(es)"
     *)
-    ojoin ~check:"✅" ~none:"❎" ("Riz", "Nouilles") "... sauté(es)"
+    Template.ojoin ~check:"✅" ~none:"❎" ("Riz", "Nouilles") "... sauté(es)"
   in
   let m = board menu selected in
   Tyxml.Html.[
@@ -110,25 +72,9 @@ let render_form selected =
     ];
   ]
 
-(* adapted from https://stackoverflow.com/a/22143976 *)
-let count_dup l =
-  match List.sort compare l with
-  | [] -> []
-  | h :: t ->
-    let counted, current, count =
-      List.fold_left (fun (counted, current, count) x ->
-        if x = current then
-          counted, current, count+1
-        else
-          (* we're done with the current element *)
-          (current, count) :: counted, x, 1
-      ) ([], h, 1) t
-    in
-    (current, count) :: counted
-
 let render_list () =
   let items = List.map (fun u -> u, Orders.fetch u) (Orders.who ()) in
-  let counts = snd (List.split items) |> List.flatten |> count_dup in
+  let counts = snd (List.split items) |> List.flatten |> Utils.count_dup in
   Tyxml.Html.[
     h2 [pcdata "Par personne"];
     ul (items |> List.map (fun (u, i) ->
@@ -140,8 +86,7 @@ let render_list () =
 
 
 let () = Lwt_main.run (My_server.create (`TCP (`Port 8000)) (fun h p uri ->
-  let open Tyre in
-  let re = route [
+  let re = Tyre.(route [
     (start *> str "/" *> stop --> fun _ ->
       match p with
       | None ->
@@ -164,9 +109,9 @@ let () = Lwt_main.run (My_server.create (`TCP (`Port 8000)) (fun h p uri ->
           `Bad_request);
     (start *> str "/all" *> stop --> fun _ ->
       `Ok ("Réservations", render_list ()));
-  ] in
+  ]) in
   let h = Cohttp.Header.init () in
-  match Tyre.(exec re (Uri.path uri)) with
+  match Tyre.exec re (Uri.path uri) with
   | Ok (`Ok (t, b)) ->
     let page = Template.page t b in
     My_server.respond `OK h page
