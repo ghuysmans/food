@@ -38,7 +38,12 @@ let title_of_t ((p, _, _): t) =
   | `Riz_saute -> "Riz sautés"
   | `Nouilles_sautees -> "Nouilles sautées"
 
-let board l = Tyxml.Html.(
+let checkbox name ?(value="1") checked =
+  let open Tyxml.Html in
+  let a = [a_input_type `Checkbox; a_name name; a_value value] in
+  input ~a:(if checked then a_checked () :: a else a) ()
+
+let board l selected = Tyxml.Html.(
   let rec f (acc, t) l =
     match l with
     | [] -> List.rev acc
@@ -47,7 +52,7 @@ let board l = Tyxml.Html.(
       let row = tr [
         td [price pr];
         td [label [
-          input ~a:[a_input_type `Checkbox; a_name str; a_value "1"] ();
+          checkbox str (List.mem str selected);
           pcdata str;
         ]];
       ] in
@@ -67,12 +72,12 @@ let who lbl = Tyxml.Html.(
   label [
     pcdata lbl;
     select ~a:[a_name "who"; a_required ()]
-      (List.map (fun x -> option (pcdata x)) ("" :: Config.who))
+      (List.map (fun x -> option (pcdata x)) ("" :: Orders.who ()))
   ]
 )
 
 
-let render =
+let render_form selected =
   let j =
     full_outer_join_u (sp_menu `Riz_saute, sp_menu `Nouilles_sautees) |>
     (*
@@ -80,13 +85,13 @@ let render =
     *)
     ojoin ~check:"✅" ~none:"❎" ("Riz", "Nouilles") "... sauté(es)"
   in
-  let m = board menu in
+  let m = board menu selected in
   Tyxml.Html.[
     form [
       who "Qui es-tu ? ";
       p [pcdata "Coche ce que tu veux et clique sur « Envoyer » tout en bas."];
       m;
-      h2 [pcdata "Tableau comparatif"];
+      h2 [pcdata "Pour ceux qui hésitent"];
       j;
       p [
         pcdata "Au cas où ça ne serait pas clair, ce tableau a été ";
@@ -101,28 +106,60 @@ let render =
       ];
       hr ();
       button [pcdata "Envoyer"];
+      button ~a:[a_button_type `Reset] [pcdata "Effacer"];
     ];
   ]
 
+(* adapted from https://stackoverflow.com/a/22143976 *)
+let count_dup l =
+  match List.sort compare l with
+  | [] -> []
+  | h :: t ->
+    let counted, current, count =
+      List.fold_left (fun (counted, current, count) x ->
+        if x = current then
+          counted, current, count+1
+        else
+          (* we're done with the current element *)
+          (current, count) :: counted, x, 1
+      ) ([], h, 1) t
+    in
+    (current, count) :: counted
 
-let route h p uri =
+let render_list () =
+  let items = List.map (fun u -> u, Orders.fetch u) (Orders.who ()) in
+  let counts = snd (List.split items) |> List.flatten |> count_dup in
+  Tyxml.Html.[
+    h2 [pcdata "Par personne"];
+    ul (items |> List.map (fun (u, i) ->
+      li [pcdata (u ^ " : " ^ String.concat ", " i)]));
+    h2 [pcdata "Par plat"];
+    ul (counts |> List.map (fun (i, c) ->
+      li [pcdata (Printf.sprintf "%s : %d" i c)]));
+  ]
+
+
+let () = Lwt_main.run (My_server.create (`TCP (`Port 8000)) (fun h p uri ->
   let open Tyre in
   let re = route [
     (start *> str "/" *> stop --> fun _ ->
-      `Ok ("Extrême Orient", render));
-    (start *> str "/a" *> stop --> fun _ ->
-      `Redirect "http://disney.com");
+      let data =
+        match Uri.get_query_param uri "who" with
+        | None -> []
+        | Some u -> Orders.fetch u
+      in
+      `Ok ("Extrême Orient", render_form data));
+    (start *> str "/all" *> stop --> fun _ ->
+      `Ok ("Réservations", render_list ()));
   ] in
+  let h = Cohttp.Header.init () in
   match Tyre.(exec re (Uri.path uri)) with
   | Ok (`Ok (t, b)) ->
     let page = Template.page t b in
-    My_server.respond `OK (Cohttp.Header.init ()) page
+    My_server.respond `OK h page
   | Ok (`Redirect u) ->
-    My_server.respond_redirect uri (Cohttp.Header.init ()) u
+    My_server.respond_redirect uri h u
   | Error _ ->
-    let page = Template.page "Not found" [] in
-    My_server.respond `Not_found (Cohttp.Header.init ()) page
-
-let () = Lwt_main.run (
-  My_server.create (`TCP (`Port 8000)) route
-)
+    let page = Template.page "Not found" [Tyxml.Html.pcdata (Uri.path uri)] in
+    My_server.respond `Not_found h page
+))
