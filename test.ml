@@ -87,8 +87,8 @@ let render_form selected =
   in
   let m = board menu selected in
   Tyxml.Html.[
-    form [
-      who "Qui es-tu ? ";
+    form ~a:[a_method `Post] [
+      Template.who "Qui es-tu ? ";
       p [pcdata "Coche ce que tu veux et clique sur « Envoyer » tout en bas."];
       m;
       h2 [pcdata "Pour ceux qui hésitent"];
@@ -143,12 +143,25 @@ let () = Lwt_main.run (My_server.create (`TCP (`Port 8000)) (fun h p uri ->
   let open Tyre in
   let re = route [
     (start *> str "/" *> stop --> fun _ ->
-      let data =
-        match Uri.get_query_param uri "who" with
-        | None -> []
-        | Some u -> Orders.fetch u
-      in
-      `Ok ("Extrême Orient", render_form data));
+      match p with
+      | None ->
+        let data =
+          match Uri.get_query_param uri "who" with
+          | None -> []
+          | Some u -> Orders.fetch u
+        in
+        `Ok ("Extrême Orient", render_form data)
+      | Some p ->
+        let sel =
+          Uri.remove_query_param p "who" |> Uri.query |>
+          List.split |> fst
+        in
+        match Uri.get_query_param p "who" with
+        | Some who when List.mem who (Orders.who ()) ->
+          Orders.update who sel;
+          `Redirect "/all"
+        | _ ->
+          `Bad_request);
     (start *> str "/all" *> stop --> fun _ ->
       `Ok ("Réservations", render_list ()));
   ] in
@@ -157,6 +170,9 @@ let () = Lwt_main.run (My_server.create (`TCP (`Port 8000)) (fun h p uri ->
   | Ok (`Ok (t, b)) ->
     let page = Template.page t b in
     My_server.respond `OK h page
+  | Ok `Bad_request ->
+    let page = Template.page "Bad request" [] in
+    My_server.respond `Bad_request h page
   | Ok (`Redirect u) ->
     My_server.respond_redirect uri h u
   | Error _ ->
