@@ -99,7 +99,8 @@ let () = Lwt_main.run (My_server.create (`TCP (`Port 8000)) (fun h p uri ->
       | Some p ->
         let sel =
           Uri.remove_query_param p "who" |> Uri.query |>
-          List.split |> fst
+          List.split |> fst |> List.map Scanf.unescaped
+          (* FIXME join with the real menu to avoid storing arbitrary strings *)
         in
         match Uri.get_query_param p "who" with
         | Some who when List.mem who (Orders.who ()) ->
